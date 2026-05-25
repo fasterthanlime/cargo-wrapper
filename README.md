@@ -13,9 +13,12 @@ It rejects `cargo test` before forwarding the command, and points agents at
 `cargo nextest run -E 'package(foo)'`.
 
 It also rejects `-p` and `--package` on other commands before forwarding them.
-The point is not style policing: package selection changes the shape of a
-workspace command, hides failures outside the selected crate, and makes Cargo
-throw away the cache shape a full workspace build would have reused.
+The point is not style policing: package selection changes the set of crates
+being built, which changes the set of enabled features. The whole workspace
+needs to establish one feature-unified build shape so Cargo stops invalidating
+and overwriting useful cache entries with partial-workspace feature sets.
+Keeping failures outside the selected crate visible is useful too, but the cache
+invalidation is the main reason this wrapper exists.
 
 Agents should run whole-workspace commands instead:
 

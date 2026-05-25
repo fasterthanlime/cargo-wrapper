@@ -141,11 +141,15 @@ fn package_selection_deny_message(denied: &DeniedPackageSelection) -> String {
     message.push_str(
         "\n\n\
          Never select a subset of the workspace.\n\n\
-         Cargo's package selection flags split the workspace into smaller shards, \
-         which hides failures in crates outside that shard and throws away the \
-         build-cache shape that a full workspace command would have reused. \
-         Agents must keep the production path visible instead of narrowing the \
-         command until it looks green.\n\n\
+         Cargo's package selection flags change the set of crates being built, \
+         which changes the set of enabled features. That breaks the feature \
+         unification shape the workspace is supposed to establish, so Cargo \
+         keeps invalidating and overwriting useful build cache entries instead \
+         of reusing one stable full-workspace cache shape. Agents must run the \
+         workspace as a workspace so the cache stops getting churned by \
+         different partial feature sets. Keeping failures outside one crate \
+         visible is useful too, but the cache invalidation is the main reason \
+         this wrapper exists.\n\n\
          Do this instead:\n\
            cargo check --workspace --all-targets --all-features\n\
            cargo clippy --workspace --all-targets --all-features -- -D warnings\n\
