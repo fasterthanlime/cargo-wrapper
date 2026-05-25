@@ -511,15 +511,17 @@ fn parse_long_command_option(text: &str) -> ParsedOption {
         | "release"
         | "tests"
         | "verbose"
-        | "workspace" => {
+        | "workspace"
+        | "force" => {
             if option.contains('=') {
                 ParsedOption::Unknown
             } else {
                 ParsedOption::Flag
             }
         }
-        "bench" | "bin" | "color" | "config" | "example" | "exclude" | "features" | "jobs"
-        | "manifest-path" | "message-format" | "profile" | "target" | "target-dir" | "test" => {
+        "bench" | "bin" | "branch" | "color" | "config" | "example" | "exclude" | "features"
+        | "git" | "index" | "jobs" | "manifest-path" | "message-format" | "path" | "profile"
+        | "registry" | "rev" | "root" | "tag" | "target" | "target-dir" | "test" | "version" => {
             if option.contains('=') {
                 ParsedOption::ValueInline
             } else {
@@ -802,6 +804,21 @@ mod tests {
                 "demo",
                 "--target",
                 "wasm32-unknown-unknown"
+            ])),
+            InvocationDecision::Forward
+        );
+    }
+
+    #[test]
+    fn install_from_path_forwards() {
+        assert_eq!(
+            classify_invocation(&args(&[
+                "install",
+                "--path",
+                ".",
+                "--root",
+                "/Users/amos/.local/cargo-wrapper",
+                "--force"
             ])),
             InvocationDecision::Forward
         );

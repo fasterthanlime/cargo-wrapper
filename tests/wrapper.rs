@@ -70,6 +70,31 @@ fn forwards_target_specific_package_selection() {
 }
 
 #[test]
+fn forwards_install_from_path() {
+    let fixture = Fixture::new("install-path");
+
+    let output = Command::new(wrapper())
+        .args([
+            "install",
+            "--path",
+            ".",
+            "--root",
+            "/Users/amos/.local/cargo-wrapper",
+            "--force",
+        ])
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(43));
+    assert_eq!(
+        fs::read_to_string(fixture.record_path()).unwrap(),
+        "<install>\n<--path>\n<.>\n<--root>\n</Users/amos/.local/cargo-wrapper>\n<--force>\n"
+    );
+}
+
+#[test]
 fn rejects_cargo_test_before_running_downstream_cargo() {
     let fixture = Fixture::new("rejects-test");
 
