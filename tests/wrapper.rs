@@ -50,6 +50,45 @@ fn rejects_package_selection_before_running_downstream_cargo() {
 }
 
 #[test]
+fn rejects_cargo_test_before_running_downstream_cargo() {
+    let fixture = Fixture::new("rejects-test");
+
+    let output = Command::new(wrapper())
+        .arg("test")
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!fixture.record_path().exists());
+
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("cargo-wrapper: refusing cargo test"));
+    assert!(stderr.contains("Use cargo nextest instead of cargo test."));
+    assert!(stderr.contains("cargo nextest run --workspace --no-fail-fast"));
+}
+
+#[test]
+fn cargo_test_package_selection_points_at_nextest_filter_expressions() {
+    let fixture = Fixture::new("rejects-test-package");
+
+    let output = Command::new(wrapper())
+        .args(["test", "-p", "demo"])
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!fixture.record_path().exists());
+
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Detected forbidden Cargo package selector: -p demo"));
+    assert!(stderr.contains("cargo nextest run -E 'package(demo)'"));
+}
+
+#[test]
 fn allows_package_like_program_args_after_double_dash() {
     let fixture = Fixture::new("double-dash");
 

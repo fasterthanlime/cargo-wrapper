@@ -3,12 +3,12 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 
-use cargo_wrapper::{denied_package_selection, deny_message};
+use cargo_wrapper::{denied_invocation, deny_message};
 
 fn main() {
     let args = env::args_os().skip(1).collect::<Vec<_>>();
 
-    if let Some(denied) = denied_package_selection(&args) {
+    if let Some(denied) = denied_invocation(&args) {
         write_stderr(&deny_message(&denied));
         process::exit(2);
     }
