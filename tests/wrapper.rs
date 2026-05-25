@@ -91,6 +91,28 @@ fn cargo_test_package_selection_points_at_nextest_filter_expressions() {
 }
 
 #[test]
+fn unknown_syntax_fails_closed_with_state_dump() {
+    let fixture = Fixture::new("unknown-syntax");
+
+    let output = Command::new(wrapper())
+        .args(["--mystery", "check"])
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!fixture.record_path().exists());
+
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("refusing to forward an invocation it cannot parse"));
+    assert!(stderr.contains("state: CargoGlobal"));
+    assert!(stderr.contains("reason: unknown cargo global option `--mystery`"));
+    assert!(stderr.contains("parser trace:"));
+    assert!(stderr.contains("downstream cargo candidate:"));
+}
+
+#[test]
 fn allows_package_like_program_args_after_double_dash() {
     let fixture = Fixture::new("double-dash");
 

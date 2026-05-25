@@ -3,14 +3,29 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 
-use cargo_wrapper::{denied_invocation, deny_message};
+use cargo_wrapper::{InvocationDecision, classify_invocation, deny_message, parse_failure_message};
 
 fn main() {
     let args = env::args_os().skip(1).collect::<Vec<_>>();
 
-    if let Some(denied) = denied_invocation(&args) {
-        write_stderr(&deny_message(&denied));
-        process::exit(2);
+    match classify_invocation(&args) {
+        InvocationDecision::Forward => {}
+        InvocationDecision::Deny(denied) => {
+            write_stderr(&deny_message(&denied));
+            process::exit(2);
+        }
+        InvocationDecision::CannotParse(failure) => {
+            write_stderr(&parse_failure_message(&failure));
+            if let Ok(cargo) = find_next_cargo() {
+                let canonical = canonical_or_original(cargo.clone());
+                write_stderr(&format!(
+                    "\ndownstream cargo candidate:\n  path: {}\n  canonical: {}\n",
+                    cargo.display(),
+                    canonical.display()
+                ));
+            }
+            process::exit(2);
+        }
     }
 
     let cargo = match find_next_cargo() {
