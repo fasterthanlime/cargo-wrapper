@@ -339,7 +339,8 @@ impl<'a> Parser<'a> {
                         self.index += 2;
                     }
                     ParsedOption::Unknown => {
-                        return Err(self.failure(format!("unknown command option `{text}`")));
+                        self.trace(format!("accepted unknown command option `{text}`"));
+                        self.index += 1;
                     }
                 }
                 continue;
@@ -374,7 +375,8 @@ impl<'a> Parser<'a> {
                         self.index += 1;
                     }
                     ShortCommandOption::Unknown => {
-                        return Err(self.failure(format!("unknown command short option `{text}`")));
+                        self.trace(format!("accepted unknown command short option `{text}`"));
+                        self.index += 1;
                     }
                 }
                 continue;
@@ -840,21 +842,14 @@ mod tests {
     }
 
     #[test]
-    fn unknown_command_option_fails_closed_with_trace() {
-        let InvocationDecision::CannotParse(failure) =
-            classify_invocation(&args(&["check", "--mystery"]))
-        else {
-            panic!("expected parse failure");
-        };
-
-        assert_eq!(failure.state, ParseState::CargoCommand);
-        assert_eq!(failure.index, 1);
-        assert!(failure.reason.contains("unknown command option"));
-        assert!(
-            failure
-                .trace
-                .iter()
-                .any(|entry| entry.action == "entered command `check`")
+    fn unknown_command_options_forward() {
+        assert_eq!(
+            classify_invocation(&args(&["check", "--mystery"])),
+            InvocationDecision::Forward
+        );
+        assert_eq!(
+            classify_invocation(&args(&["tree", "-i", "dodeca"])),
+            InvocationDecision::Forward
         );
     }
 }

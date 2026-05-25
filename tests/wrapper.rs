@@ -95,6 +95,24 @@ fn forwards_install_from_path() {
 }
 
 #[test]
+fn forwards_unknown_command_options() {
+    let fixture = Fixture::new("unknown-command-options");
+
+    let output = Command::new(wrapper())
+        .args(["tree", "-i", "dodeca"])
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(43));
+    assert_eq!(
+        fs::read_to_string(fixture.record_path()).unwrap(),
+        "<tree>\n<-i>\n<dodeca>\n"
+    );
+}
+
+#[test]
 fn rejects_cargo_test_before_running_downstream_cargo() {
     let fixture = Fixture::new("rejects-test");
 
