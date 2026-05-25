@@ -113,8 +113,8 @@ impl<'a> Parser<'a> {
         self.state = ParseState::CargoCommand;
         self.trace(format!("entered command `{command}`"));
 
-        let package = match self.scan_command_args() {
-            Ok(package) => package,
+        let command_args = match self.scan_command_args() {
+            Ok(command_args) => command_args,
             Err(failure) => {
                 if command == "test" {
                     return InvocationDecision::Deny(DeniedInvocation::CargoTest { package: None });
@@ -124,11 +124,17 @@ impl<'a> Parser<'a> {
             }
         };
 
-        if command == "test" {
-            return InvocationDecision::Deny(DeniedInvocation::CargoTest { package });
+        if command_args.has_target {
+            return InvocationDecision::Forward;
         }
 
-        if let Some(package) = package {
+        if command == "test" {
+            return InvocationDecision::Deny(DeniedInvocation::CargoTest {
+                package: command_args.package,
+            });
+        }
+
+        if let Some(package) = command_args.package {
             return InvocationDecision::Deny(DeniedInvocation::PackageSelection(package));
         }
 
@@ -223,7 +229,9 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    fn scan_command_args(&mut self) -> Result<Option<DeniedPackageSelection>, ParseFailure> {
+    fn scan_command_args(&mut self) -> Result<CommandArgs, ParseFailure> {
+        let mut command_args = CommandArgs::default();
+
         while self.index < self.args.len() {
             let arg = self.args[self.index].clone();
 
@@ -231,7 +239,7 @@ impl<'a> Parser<'a> {
                 self.trace(
                     "found `--`; remaining arguments belong to executed program/test harness",
                 );
-                return Ok(None);
+                return Ok(command_args);
             }
 
             let Some(text) = arg.to_str() else {
@@ -240,39 +248,74 @@ impl<'a> Parser<'a> {
 
             if text == "--package" {
                 self.trace("detected forbidden `--package` selector");
-                return Ok(Some(DeniedPackageSelection {
+                command_args.package = Some(DeniedPackageSelection {
                     flag: text.to_owned(),
                     value: self.args.get(self.index + 1).map(display_os),
-                }));
+                });
+                self.index += if self.index + 1 < self.args.len() {
+                    2
+                } else {
+                    1
+                };
+                continue;
             }
 
             if let Some(value) = text.strip_prefix("--package=") {
                 self.trace("detected forbidden `--package=...` selector");
-                return Ok(Some(DeniedPackageSelection {
+                command_args.package = Some(DeniedPackageSelection {
                     flag: "--package".to_owned(),
                     value: Some(value.to_owned()),
-                }));
+                });
+                self.index += 1;
+                continue;
             }
 
             if text == "-p" {
                 self.trace("detected forbidden `-p` selector");
-                return Ok(Some(DeniedPackageSelection {
+                command_args.package = Some(DeniedPackageSelection {
                     flag: text.to_owned(),
                     value: self.args.get(self.index + 1).map(display_os),
-                }));
+                });
+                self.index += if self.index + 1 < self.args.len() {
+                    2
+                } else {
+                    1
+                };
+                continue;
             }
 
             if let Some(value) = text.strip_prefix("-p")
                 && !value.is_empty()
             {
                 self.trace("detected forbidden `-p...` selector");
-                return Ok(Some(DeniedPackageSelection {
+                command_args.package = Some(DeniedPackageSelection {
                     flag: "-p".to_owned(),
                     value: Some(value.to_owned()),
-                }));
+                });
+                self.index += 1;
+                continue;
             }
 
             if text.starts_with("--") {
+                if text == "--target" {
+                    if self.index + 1 >= self.args.len() {
+                        return Err(
+                            self.failure(format!("command option `{text}` requires a value"))
+                        );
+                    }
+                    self.trace("accepted command `--target`; target-specific build forwards");
+                    command_args.has_target = true;
+                    self.index += 2;
+                    continue;
+                }
+
+                if text.starts_with("--target=") {
+                    self.trace("accepted command `--target=...`; target-specific build forwards");
+                    command_args.has_target = true;
+                    self.index += 1;
+                    continue;
+                }
+
                 match parse_long_command_option(text) {
                     ParsedOption::Flag => {
                         self.trace(format!("accepted command flag `{text}`"));
@@ -327,7 +370,8 @@ impl<'a> Parser<'a> {
                     }
                     ShortCommandOption::PackageSelection(package) => {
                         self.trace(format!("detected forbidden `{text}` selector"));
-                        return Ok(Some(package));
+                        command_args.package = Some(package);
+                        self.index += 1;
                     }
                     ShortCommandOption::Unknown => {
                         return Err(self.failure(format!("unknown command short option `{text}`")));
@@ -340,7 +384,7 @@ impl<'a> Parser<'a> {
             self.index += 1;
         }
 
-        Ok(None)
+        Ok(command_args)
     }
 
     fn trace(&mut self, action: impl Into<String>) {
@@ -363,6 +407,12 @@ impl<'a> Parser<'a> {
             trace: self.trace.clone(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct CommandArgs {
+    package: Option<DeniedPackageSelection>,
+    has_target: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -447,6 +497,7 @@ fn parse_long_command_option(text: &str) -> ParsedOption {
         | "all-features"
         | "bins"
         | "benches"
+        | "check"
         | "examples"
         | "frozen"
         | "help"
@@ -712,6 +763,47 @@ mod tests {
                 flag: "-p".to_owned(),
                 value: Some("demo".to_owned())
             }))
+        );
+    }
+
+    #[test]
+    fn target_specific_package_selection_forwards_with_separate_target_value() {
+        assert_eq!(
+            classify_invocation(&args(&[
+                "build",
+                "-p",
+                "demo",
+                "--target",
+                "wasm32-unknown-unknown"
+            ])),
+            InvocationDecision::Forward
+        );
+    }
+
+    #[test]
+    fn target_specific_package_selection_forwards_with_inline_target_value() {
+        assert_eq!(
+            classify_invocation(&args(&[
+                "build",
+                "--target=wasm32-unknown-unknown",
+                "--package",
+                "demo"
+            ])),
+            InvocationDecision::Forward
+        );
+    }
+
+    #[test]
+    fn target_specific_cargo_test_forwards() {
+        assert_eq!(
+            classify_invocation(&args(&[
+                "test",
+                "-p",
+                "demo",
+                "--target",
+                "wasm32-unknown-unknown"
+            ])),
+            InvocationDecision::Forward
         );
     }
 

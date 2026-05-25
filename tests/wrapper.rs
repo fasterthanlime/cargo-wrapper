@@ -52,6 +52,24 @@ fn rejects_package_selection_before_running_downstream_cargo() {
 }
 
 #[test]
+fn forwards_target_specific_package_selection() {
+    let fixture = Fixture::new("target-package");
+
+    let output = Command::new(wrapper())
+        .args(["build", "-p", "demo", "--target", "wasm32-unknown-unknown"])
+        .env("PATH", fixture.bin_dir())
+        .env("CARGO_WRAPPER_FAKE_RECORD", fixture.record_path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(43));
+    assert_eq!(
+        fs::read_to_string(fixture.record_path()).unwrap(),
+        "<build>\n<-p>\n<demo>\n<--target>\n<wasm32-unknown-unknown>\n"
+    );
+}
+
+#[test]
 fn rejects_cargo_test_before_running_downstream_cargo() {
     let fixture = Fixture::new("rejects-test");
 
