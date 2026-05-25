@@ -23,7 +23,7 @@ invalidation is the main reason this wrapper exists.
 Agents should run whole-workspace commands instead:
 
 ```sh
-cargo check --workspace --all-targets --all-features
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo check --workspace
+cargo clippy --workspace -- -D warnings
 cargo nextest run --workspace --no-fail-fast
 ```

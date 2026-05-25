@@ -151,8 +151,8 @@ fn package_selection_deny_message(denied: &DeniedPackageSelection) -> String {
          visible is useful too, but the cache invalidation is the main reason \
          this wrapper exists.\n\n\
          Do this instead:\n\
-           cargo check --workspace --all-targets --all-features\n\
-           cargo clippy --workspace --all-targets --all-features -- -D warnings\n\
+           cargo check --workspace\n\
+           cargo clippy --workspace -- -D warnings\n\
            cargo nextest run --workspace --no-fail-fast\n\n\
          If the full workspace is broken, report the full failing set and fix it. \
          Do not hide it with -p or --package.\n",

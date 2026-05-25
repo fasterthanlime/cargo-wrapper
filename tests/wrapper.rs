@@ -45,7 +45,9 @@ fn rejects_package_selection_before_running_downstream_cargo() {
 
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("Never select a subset of the workspace."));
-    assert!(stderr.contains("cargo check --workspace --all-targets --all-features"));
+    assert!(stderr.contains("cargo check --workspace"));
+    assert!(!stderr.contains("--all-targets"));
+    assert!(!stderr.contains("--all-features"));
     assert!(stderr.contains("cargo nextest run --workspace --no-fail-fast"));
 }
 
