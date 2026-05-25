@@ -7,6 +7,38 @@ The installed binary is named `cargo`. Put it in a directory that appears before
 the real Cargo binary on `PATH`; it will find and run the next executable named
 `cargo` after itself.
 
+## Install
+
+Install it into its own root, not into `~/.cargo/bin`:
+
+```sh
+cargo install --git https://github.com/fasterthanlime/cargo-wrapper \
+  --root ~/.local/cargo-wrapper \
+  --force
+```
+
+Then put the wrapper before the real Cargo on `PATH`:
+
+```sh
+export PATH="$HOME/.local/cargo-wrapper/bin:$PATH"
+hash -r 2>/dev/null || true
+```
+
+Check the order:
+
+```sh
+which -a cargo
+```
+
+The first `cargo` should be `~/.local/cargo-wrapper/bin/cargo`. A later one
+should be the real Cargo executable, usually the rustup shim in `~/.cargo/bin`.
+
+For local development:
+
+```sh
+cargo install --path . --root ~/.local/cargo-wrapper --force
+```
+
 It rejects `cargo test` before forwarding the command, and points agents at
 `cargo nextest run` instead. If the rejected test command also used `-p foo` or
 `--package foo`, the diagnostic steers that selection to nextest's filter syntax:
